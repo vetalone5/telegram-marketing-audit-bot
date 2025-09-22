@@ -12,6 +12,17 @@ from app.features.audit.adapters.cleaner import clean_html
 # Флаг для контроля использования web tools (синхронизирован с llm.py)
 USE_WEB_TOOLS = False  # По умолчанию отключен для стабильности
 
+# Импортируем Playwright версию с обработкой ошибок
+try:
+    from .fetcher_playwright import get_content_bundle_playwright, PLAYWRIGHT_AVAILABLE
+    logger.info("Playwright модуль импортирован успешно")
+except ImportError as e:
+    PLAYWRIGHT_AVAILABLE = False
+    logger.warning(f"Playwright не доступен: {e}")
+    
+    def get_content_bundle_playwright(url: str):
+        raise ImportError("Playwright не установлен")
+
 
 @retry_on_network_error
 async def http_fetch(url: str) -> str:
@@ -93,9 +104,9 @@ def find_pricing_link(home_html: str, base_url: str) -> Optional[str]:
         return None
 
 
-async def get_content_bundle(url: str) -> Dict[str, any]:
+async def get_content_bundle_http(url: str) -> Dict[str, any]:
     """
-    Получение полного контента сайта (главная + цены)
+    Оригинальная версия получения контента через HTTP (используется как fallback)
     
     Args:
         url: URL сайта для анализа
@@ -109,7 +120,7 @@ async def get_content_bundle(url: str) -> Dict[str, any]:
         if not normalized_url:
             raise ValueError(f"Не удалось нормализовать URL: {url}")
         
-        logger.info(f"Начинаем загрузку контента для {normalized_url}")
+        logger.info(f"Начинаем HTTP загрузку контента для {normalized_url}")
         
         # Проверяем флаг USE_WEB_TOOLS
         if USE_WEB_TOOLS:
@@ -189,6 +200,83 @@ async def get_content_bundle(url: str) -> Dict[str, any]:
         
         logger.info(f"HTTP fallback завершен для {normalized_url}: {len(result['home_text'])} символов главной")
         return result
+    
+    except Exception as e:
+        logger.error(f"Критическая ошибка HTTP загрузки контента {url}: {e}")
+        raise
+
+
+async def get_content_bundle(url: str) -> Dict[str, any]:
+    """
+    Главная функция получения контента с автоматическим выбором метода (Playwright или HTTP)
+    
+    Args:
+        url: URL сайта для анализа
+        
+    Returns:
+        Словарь с контентом: {home_text, pricing_text?, pricing_url?, requires_js?}
+    """
+    try:
+        # Нормализуем URL
+        normalized_url = normalize_url(url)
+        if not normalized_url:
+            raise ValueError(f"Не удалось нормализовать URL: {url}")
+        
+        logger.info(f"Начинаем загрузку контента для {normalized_url}")
+        
+        # Определяем метод загрузки
+        use_playwright = (
+            PLAYWRIGHT_AVAILABLE and 
+            settings.use_playwright
+        )
+        
+        if use_playwright:
+            try:
+                logger.info(f"Используем Playwright для анализа: {normalized_url}")
+                
+                # Пробуем Playwright
+                result = await get_content_bundle_playwright(normalized_url)
+                
+                # Проверяем качество результата
+                home_length = len(result.get("home_text", ""))
+                
+                if home_length < 300:  # Если контента мало
+                    logger.warning(f"Мало контента с Playwright ({home_length} символов), пробуем HTTP fallback")
+                    
+                    try:
+                        http_result = await get_content_bundle_http(normalized_url)
+                        http_length = len(http_result.get("home_text", ""))
+                        
+                        # Используем лучший результат
+                        if http_length > home_length:
+                            logger.info(f"HTTP дал лучший результат ({http_length} vs {home_length} символов)")
+                            return http_result
+                        else:
+                            logger.info(f"Playwright результат лучше, используем его")
+                            return result
+                            
+                    except Exception as http_error:
+                        logger.error(f"HTTP fallback тоже не сработал: {http_error}")
+                        return result  # Возвращаем что есть
+                else:
+                    logger.info(f"Playwright успешно загрузил {home_length} символов")
+                    return result
+                
+            except Exception as e:
+                logger.error(f"Ошибка Playwright для {normalized_url}: {e}")
+                logger.info("Переходим на HTTP fallback...")
+                
+                # Fallback на оригинальный HTTP метод
+                try:
+                    return await get_content_bundle_http(normalized_url)
+                except Exception as http_error:
+                    logger.error(f"HTTP fallback тоже не сработал: {http_error}")
+                    raise
+        else:
+            # Используем оригинальный HTTP метод
+            reason = "не установлен" if not PLAYWRIGHT_AVAILABLE else "отключен в настройках"
+            logger.info(f"Playwright {reason}, используем HTTP для анализа: {normalized_url}")
+            return await get_content_bundle_http(normalized_url)
     
     except Exception as e:
         logger.error(f"Критическая ошибка загрузки контента {url}: {e}")

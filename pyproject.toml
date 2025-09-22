@@ -21,6 +21,7 @@ google-auth-httplib2 = "^0.2.0"
 google-auth-oauthlib = "^1.2.0"
 uvloop = {version = "^0.19.0", optional = true}
 openai = "^1.107.1"
+playwright = "^1.40.0"
 
 [tool.poetry.scripts]
 run = "app.telegram.bot:main"

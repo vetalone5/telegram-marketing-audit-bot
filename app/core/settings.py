@@ -28,6 +28,20 @@ class Settings(BaseSettings):
         default=10,
         description="Лимит запросов по умолчанию для пользователя"
     )
+    
+    # Playwright настройки для JS-рендеринга
+    use_playwright: bool = Field(
+        default=True,
+        description="Использовать Playwright для JS-рендеринга сайтов"
+    )
+    playwright_timeout: int = Field(
+        default=20000,
+        description="Таймаут загрузки страницы в миллисекундах"
+    )
+    playwright_wait_timeout: int = Field(
+        default=3000,
+        description="Время ожидания JS рендеринга в миллисекундах"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
