@@ -135,7 +135,7 @@ async def run_audit_service(user_id: str, url: str, chat_id: int, bot) -> None:
         # Отправляем сообщение об ошибке
         from app.telegram import texts
         try:
-            await bot.send_message(chat_id, texts.ERROR_GENERIC)
+            await bot.send_message(chat_id, texts.ERROR_GENERIC, parse_mode='HTML')
         except Exception as send_error:
             logger.error(f"Не удалось отправить сообщение об ошибке: {send_error}")
 
@@ -157,10 +157,11 @@ async def handle_audit_result(result: Dict[str, Any], chat_id: int, bot) -> None
             if result.get("reason") == "limit":
                 await bot.send_message(
                     chat_id, 
-                    "Лимит анализов исчерпан. Обратитесь к администратору."
+                    "Лимит анализов исчерпан. Обратитесь к администратору.",
+                    parse_mode='HTML'
                 )
             else:
-                await bot.send_message(chat_id, texts.ERROR_GENERIC)
+                await bot.send_message(chat_id, texts.ERROR_GENERIC, parse_mode='HTML')
             return
         
         # Формируем сообщение с результатом
@@ -176,14 +177,16 @@ async def handle_audit_result(result: Dict[str, Any], chat_id: int, bot) -> None
             await bot.send_message(
                 chat_id,
                 summary_text,
-                reply_markup=keyboards.after_result_with_sheet_kb()
+                reply_markup=keyboards.after_result_with_sheet_kb(),
+                parse_mode='HTML'
             )
         else:
             # Результат сохранен отложенно
             await bot.send_message(
                 chat_id,
                 texts.RESULT_NO_SHEET,
-                reply_markup=keyboards.after_result_no_sheet_kb()
+                reply_markup=keyboards.after_result_no_sheet_kb(),
+                parse_mode='HTML'
             )
         
         logger.info(f"Результат анализа отправлен в чат {chat_id}")
@@ -191,6 +194,6 @@ async def handle_audit_result(result: Dict[str, Any], chat_id: int, bot) -> None
     except Exception as e:
         logger.error(f"Ошибка отправки результата анализа: {e}")
         try:
-            await bot.send_message(chat_id, texts.ERROR_GENERIC)
+            await bot.send_message(chat_id, texts.ERROR_GENERIC, parse_mode='HTML')
         except:
             pass

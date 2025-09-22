@@ -27,20 +27,22 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             # У пользователя есть таблица
             await update.message.reply_text(
                 texts.WELCOME_WITH_SHEET,
-                reply_markup=keyboards.main_kb()
+                reply_markup=keyboards.main_kb(),
+                parse_mode='HTML'
             )
         else:
             # Таблица не подключена
             await update.message.reply_text(
                 texts.WELCOME_NO_SHEET,
-                reply_markup=keyboards.single_start_kb()
+                reply_markup=keyboards.single_start_kb(),
+                parse_mode='HTML'
             )
         
         return ConversationHandler.END
         
     except Exception as e:
         logger.error(f"Ошибка в start_command: {e}")
-        await update.message.reply_text(texts.ERROR_GENERIC)
+        await update.message.reply_text(texts.ERROR_GENERIC, parse_mode='HTML')
         return ConversationHandler.END
 
 
@@ -58,7 +60,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         if data == "start_analysis" or data == "new_analysis":
             # Начать новый анализ
             logger.debug(f"Переходим в состояние WAITING_FOR_URL для {user_id}")
-            await query.edit_message_text(texts.ASK_FOR_URL)
+            await query.edit_message_text(texts.ASK_FOR_URL, parse_mode='HTML')
             return WAITING_FOR_URL
             
         elif data == "connect_sheet":
@@ -67,11 +69,11 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
             try:
                 service_email = await get_service_email()
                 instructions = texts.CONNECT_INSTRUCTIONS.format(service_email=service_email)
-                await query.edit_message_text(instructions)
+                await query.edit_message_text(instructions, parse_mode='HTML')
                 return WAITING_FOR_SHEET_URL
             except Exception as e:
                 logger.error(f"Ошибка получения service_email: {e}")
-                await query.edit_message_text(texts.ERROR_GENERIC)
+                await query.edit_message_text(texts.ERROR_GENERIC, parse_mode='HTML')
                 return ConversationHandler.END
                 
         elif data == "open_sheet":
@@ -81,14 +83,16 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
                 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}"
                 await query.edit_message_text(
                     f"Твоя таблица: {sheet_url}",
-                    reply_markup=keyboards.main_kb()
+                    reply_markup=keyboards.main_kb(),
+                    parse_mode='HTML'
                 )
             else:
                 # Открыть резервную таблицу
                 default_sheet_url = f"https://docs.google.com/spreadsheets/d/{settings.google_sheets_id}"
                 await query.edit_message_text(
                     f"Резервная таблица: {default_sheet_url}",
-                    reply_markup=keyboards.main_kb()
+                    reply_markup=keyboards.main_kb(),
+                    parse_mode='HTML'
                 )
             return ConversationHandler.END
         
@@ -97,7 +101,7 @@ async def button_callback_handler(update: Update, context: ContextTypes.DEFAULT_
         
     except Exception as e:
         logger.error(f"Ошибка в button_callback_handler: {e}")
-        await query.edit_message_text(texts.ERROR_GENERIC)
+        await query.edit_message_text(texts.ERROR_GENERIC, parse_mode='HTML')
         return ConversationHandler.END
 
 
@@ -111,7 +115,7 @@ async def url_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         logger.debug(f"Завершаем состояние WAITING_FOR_URL для {user_id}")
         
         # Отправляем сообщение о начале анализа
-        await update.message.reply_text(texts.ANALYSIS_STARTED)
+        await update.message.reply_text(texts.ANALYSIS_STARTED, parse_mode='HTML')
         
         # Запускаем анализ в фоновом режиме
         context.application.create_task(
@@ -122,7 +126,7 @@ async def url_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         
     except Exception as e:
         logger.error(f"Ошибка в url_message_handler: {e}")
-        await update.message.reply_text(texts.ERROR_GENERIC)
+        await update.message.reply_text(texts.ERROR_GENERIC, parse_mode='HTML')
         return ConversationHandler.END
 
 
@@ -139,7 +143,8 @@ async def sheet_url_message_handler(update: Update, context: ContextTypes.DEFAUL
         sheet_id = extract_sheet_id(sheet_url)
         if not sheet_id:
             await update.message.reply_text(
-                "Неверный формат ссылки на Google Таблицу. Попробуйте еще раз."
+                "Неверный формат ссылки на Google Таблицу. Попробуйте еще раз.",
+                parse_mode='HTML'
             )
             return WAITING_FOR_SHEET_URL
         
@@ -153,14 +158,15 @@ async def sheet_url_message_handler(update: Update, context: ContextTypes.DEFAUL
         message = texts.CONNECTED_AND_FLUSHED.format(count=count)
         await update.message.reply_text(
             message,
-            reply_markup=keyboards.after_result_with_sheet_kb()
+            reply_markup=keyboards.after_result_with_sheet_kb(),
+            parse_mode='HTML'
         )
         
         return ConversationHandler.END
         
     except Exception as e:
         logger.error(f"Ошибка в sheet_url_message_handler: {e}")
-        await update.message.reply_text(texts.ERROR_GENERIC)
+        await update.message.reply_text(texts.ERROR_GENERIC, parse_mode='HTML')
         return ConversationHandler.END
 
 
@@ -199,7 +205,8 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if not context.args or len(context.args) != 2:
             await update.message.reply_text(
                 "Использование: /set_limit <user_id> <лимит>\n"
-                "Пример: /set_limit 123456789 50"
+                "Пример: /set_limit 123456789 50",
+                parse_mode='HTML'
             )
             return ConversationHandler.END
         
@@ -207,18 +214,19 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             target_user_id = context.args[0]
             new_limit = int(context.args[1])
         except ValueError:
-            await update.message.reply_text("Лимит должен быть числом.")
+            await update.message.reply_text("Лимит должен быть числом.", parse_mode='HTML')
             return ConversationHandler.END
         
         if new_limit < 0:
-            await update.message.reply_text("Лимит не может быть отрицательным.")
+            await update.message.reply_text("Лимит не может быть отрицательным.", parse_mode='HTML')
             return ConversationHandler.END
         
         # Устанавливаем лимит
         await set_limit(target_user_id, new_limit)
         
         await update.message.reply_text(
-            f"Лимит для пользователя {target_user_id} установлен: {new_limit}"
+            f"Лимит для пользователя {target_user_id} установлен: {new_limit}",
+            parse_mode='HTML'
         )
         
         logger.info(f"Админ {admin_user_id} установил лимит {new_limit} для пользователя {target_user_id}")
@@ -227,7 +235,7 @@ async def set_limit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         
     except Exception as e:
         logger.error(f"Ошибка в set_limit_command: {e}")
-        await update.message.reply_text(texts.ERROR_GENERIC)
+        await update.message.reply_text(texts.ERROR_GENERIC, parse_mode='HTML')
         return ConversationHandler.END
 
 
@@ -237,6 +245,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     
     if isinstance(update, Update) and update.effective_message:
         try:
-            await update.effective_message.reply_text(texts.ERROR_GENERIC)
+            await update.effective_message.reply_text(texts.ERROR_GENERIC, parse_mode='HTML')
         except Exception as e:
             logger.error(f"Не удалось отправить сообщение об ошибке: {e}")
