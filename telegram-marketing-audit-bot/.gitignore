@@ -169,9 +169,6 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Тестовые файлы сравнения
-comparison_results_*.json
-
 # Проект
 !secrets/.gitkeep
 !logs/.gitkeep
